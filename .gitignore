@@ -1,0 +1,35 @@
+# IAR
+*.ewd
+*.ewp
+*.eww
+settings/
+Debug/
+Release/
+
+# Keil MDK
+*.uvguix
+*.uvoptx
+*.uvprojx.user
+Listings/
+Objects/
+
+# Build outputs
+*.o
+*.d
+*.crf
+*.htm
+*.dep
+*.map
+*.lst
+*.axf
+*.hex
+*.bin
+*.elf
+
+# Backup
+*.bak
+*~
+
+# OS
+.DS_Store
+Thumbs.db
