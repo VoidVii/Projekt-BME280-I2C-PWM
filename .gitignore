@@ -12,6 +12,7 @@ Release/
 *.uvprojx.user
 Listings/
 Objects/
+RTE/
 
 # Build outputs
 *.o
