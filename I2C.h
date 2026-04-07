@@ -6,35 +6,36 @@
 /* Array for module selection */
 extern uint32_t I2C_Base[];
 
-/* 	START and STOP Conditions - 
-		ACK=X (0 or 1), STOP=1, START=1, and RUN=1 
+/*START and STOP Conditions - STOP=1, START=1, and RUN=1 
 */
 #define START_RUN				0x03U
 #define RUN_STOP				0x05U
-#define START_RUN_STOP 	0x07U
+#define START_RUN_STOP	0x07U
 
 
-/* I2C-Bus bits */
-#define I2C_BUSY_BIT 		(1U << 0U)
-#define I2C_MCS_ERROR 	(1U << 1U)
-#define I2C_MCS_ADRACK 	(1U << 2U)
-#define I2C_MCS_DATACK 	(1U << 3U)
+/* I2C_MCS (Master Control/Status) bits */
+#define I2C_BUSY_BIT 		(1U << 0U) /**< Bus is busy */
+#define I2C_MCS_ERROR 	(1U << 1U) /**< Some Error accured */
+#define I2C_MCS_ADRACK 	(1U << 2U) /**< Address not aknowledged */
+#define I2C_MCS_DATACK 	(1U << 3U) /**< Data not aknowledged */
+#define I2C_MCS_ARBLST 	(1U << 4U) /**< Abritation failed - Bus conection lost */
 
+/* All Bus-Errors  */
+#define I2C_MCS_ALL_ERRORS (I2C_MCS_ARBLST | I2C_MCS_ERROR | I2C_MCS_ADRACK | I2C_MCS_DATACK )
 
-/* TPR - Value - Calculation */
+/* Busy Bus return values*/
+#define I2C_OK				 0	
+#define I2C_E_ARBLST	-1
+#define I2C_E_ADRACK	-2	
+#define I2C_E_DATACK	-3
+
+/* TPR - Value - Calculation - Datasheet - "normal speed" values*/
 #define SCL_LP					6U
 #define SCL_HP					4U
 #define SCL_CLK 				100000U /**< 100KHz */
 
 /* I2CMCR Vlaue to set I2C Mater */
 #define I2C_MCR_MASTER		0x10U
-
-/*
-I2C 0: 0x4002.0000
-I2C 1: 0x4002.1000
-I2C 2: 0x4002.2000
-I2C 3: 0x4002.3000 
-*/
 
 //#define I2C0_Base 0x40020000U
 
@@ -45,7 +46,14 @@ I2C 3: 0x4002.3000
 
 /* **** 16.5 Register Map - Datasheet **** */
 
+/*
+Base:
 
+I2C 0: 0x4002.0000
+I2C 1: 0x4002.1000
+I2C 2: 0x4002.2000
+I2C 3: 0x4002.3000 
+*/
 
 #define I2C_MSA_OFFSET		0x000U /* I2C Master Slave Address */
 #define I2C_MCS_OFFSET		0x004U /* I2C Master Control/Status */
@@ -83,7 +91,7 @@ int32_t I2C_Bus_Busy_Wait(volatile uint32_t* mcs);
 *@param reg 			Slave device register to write to
 *@param data 			data to write in register
 */
-int32_t I2C_WriteReg(uint8_t modul, uint8_t devSlave, uint8_t reg, uint8_t data);
+int32_t I2C_WriteReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t data);
 
 /**
 *@brief Read from slave data in a register
@@ -94,7 +102,7 @@ int32_t I2C_WriteReg(uint8_t modul, uint8_t devSlave, uint8_t reg, uint8_t data)
 *
 *@return 					Returns the data from the slave data-register
 */
-uint8_t I2C_ReadReg(uint8_t modul, uint8_t devSlave, uint8_t reg);
+int32_t I2C_ReadReg(uint8_t module, uint8_t devSlave, uint8_t reg , uint8_t* data);
 
 // void I2C_ReadBurst(uint8_t addr, uint8_t reg, uint8_t* buffer, uint8_t len);
 

@@ -4,39 +4,50 @@
 
 /* Base-Address: I2C0 - I2C3 -> Datasheet */
 uint32_t I2C_Base[] = {
-		0x40020000U,	//I2C0
-		0x40021000U,	//I2C1
-		0x40022000U,	//I2C2
-		0x40023000U,	//I2C3
+	0x40020000U,	//I2C0
+	0x40021000U,	//I2C1
+	0x40022000U,	//I2C2
+	0x40023000U,	//I2C3
 };
 
-/**
-*@brief Initialize the I2C-BUS
-*/
 
 /* Bus busy loop */
 int32_t I2C_Bus_Busy_Wait(volatile uint32_t *mcs)
 {
-		/* Wait until I2C controller is not busy (BUSY bit = 0) */
-		while(*mcs & I2C_BUSY_BIT) {
-				/* Busy – wait */
-		}
-		
-				if((*mcs & I2C_MCS_ERROR) != 0)
+	/* Wait until I2C controller is not busy (BUSY bit = 0) */
+	while((*mcs & I2C_BUSY_BIT) != 0U) {
+		/* Busy – wait */
+	}
+	
+	/* Update status of mcs after bus is done */
+	uint32_t status_E = *mcs;
+	
+	/* Check for errors */
+	if((status_E & I2C_MCS_ALL_ERRORS) != 0) 
+	{
+		if((status_E & I2C_MCS_ARBLST) != 0) /**< Abritation failed - Bus conection lost */
 		{
-			/* --> ERROR */    
-			return -1;
-		}
-		else
+			return I2C_E_ARBLST;
+		} 
+		if((status_E & I2C_MCS_ADRACK) != 0) /**< Address not aknowledged */
 		{
-			/* No ERROR */
-			return 0;
+			return I2C_E_ADRACK;
+		} 
+		if((status_E & I2C_MCS_DATACK) != 0)	/**< Data not aknowledged */
+		{
+			return I2C_E_DATACK;
 		}
+	}
+	else
+	{	
+		/* Success - No ERROR */
+		return I2C_OK;
+	}
 }
 
-
-	
-
+	/**
+*@brief Initialize the I2C-BUS
+*/
 void I2C_Init(uint8_t module, uint8_t port, uint8_t pin_I2CSCL, uint8_t pin_I2CSDA)
 {	
 		volatile uint32_t *mcr; 	/* I2C Master Configuration */
@@ -75,68 +86,133 @@ void I2C_Init(uint8_t module, uint8_t port, uint8_t pin_I2CSCL, uint8_t pin_I2CS
     *mtpr = TPR;    // für 50 MHz SCL = 100 kHz
 }
 
-int32_t I2C_WriteReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t data){
+int32_t I2C_WriteReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t data)
+{
 		
-		/* Pointer to registers */
-		volatile uint32_t *msa; 	/* I2C Master Slave Address */
-		volatile uint32_t *mdr;		/* I2C Master Data */
-		volatile uint32_t *mcs;		/* I2C Master Control/Status */
+	/* Pointer to registers */
+	volatile uint32_t *msa; 	/* I2C Master Slave Address */
+	volatile uint32_t *mdr;		/* I2C Master Data */
+	volatile uint32_t *mcs;		/* I2C Master Control/Status */
+
+
+	/* Get the base-address of used I2C-module */
+	uint32_t base = I2C_Base[module];
+	int32_t status = 0U;
 	
+	/* Address - Pointer - Arithmetik */
+	msa = (volatile uint32_t*)(base + I2C_MSA_OFFSET);
+	mdr = (volatile uint32_t*)(base + I2C_MDR_OFFSET);
+	mcs = (volatile uint32_t*)(base + I2C_MCS_OFFSET);
+
+	/* Send slave-register to be written to */
 	
-		/* Get the base-address of used I2C-module */
-		uint32_t base = I2C_Base[module];
+	/* 	
+		Master writes the slave address to the I2CMSA register and configures
+		the R/S bit for the desired transfer type.
 		
-		/* Address - Pointer - Arithmetik */
-		msa = (volatile uint32_t*)(base + I2C_MSA_OFFSET);
-		mdr = (volatile uint32_t*)(base + I2C_MDR_OFFSET);
-		mcs = (volatile uint32_t*)(base + I2C_MCS_OFFSET);
+		This address is 7-bits long followed by an eighth bit, which is
+		a data direction bit (R/S bit in the I2CMSA register)	
+	*/
+	*msa = (devSlave << 1U); /**< 0. Bit = R/S bit ==> Write -> 0 */
 	
-		/* Send slave-register to be written to */
+	/* Data is written to the I2CMDR register - what slave-register to read from */
+	*mdr = reg;
 	
-		/* 	Send register-address of slave to write to:
-				I2C0->MSA = (devSlave << 1);
-				I2C0->MDR = reg;
-				I2C0->MCS = 0x03; // START + RUN
-				while(I2C0->MCS & 0x01);
-		*/
+	/* Master writes 0x3 to the I2CMCS register to initiate a transfer */
+	*mcs = START_RUN;
+	
+	/* Wait until I2C controller is not busy (BUSY bit = 0) and check for error */
+	/* If error accured return ERROR  */
+	status = I2C_Bus_Busy_Wait(mcs);
+	
+	if(status != 0) 
+	{
+		return status;
+	}
+	
+	/* Send send data to slave-register */
+	*mdr = data;
+	
+	/* Master writes 0x5 to the I2CMCS register to stop a transfer */ 
+	*mcs = RUN_STOP;
+	
+	/* Wait until I2C controller is not busy (BUSY bit = 0) and check for error */
+	/* If error accured reeturn -1 */
+	status = I2C_Bus_Busy_Wait(mcs);
+	
+	if(status != 0) 
+	{
+		return status;
+	}
+	
+	/* No errors accured succeded! */
+	return 0;
+}
+
+
+int32_t I2C_ReadReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t* data)
+{
+	/* Pointer to registers */
+	volatile uint32_t *msa; 	/* I2C Master Slave Address */
+	volatile uint32_t *mdr;		/* I2C Master Data */
+	volatile uint32_t *mcs;		/* I2C Master Control/Status */
+	
+	/* Get the base-address of used I2C-module */
+	uint32_t base = I2C_Base[module];
+	int32_t status = 0U;
+	
+	/* Address - Pointer - Arithmetik */
+	msa = (volatile uint32_t*)(base + I2C_MSA_OFFSET);
+	mdr = (volatile uint32_t*)(base + I2C_MDR_OFFSET);
+	mcs = (volatile uint32_t*)(base + I2C_MCS_OFFSET);
+	
+	/* 	
+		Master writes the slave address to the I2CMSA register and configures
+		the R/S bit for the desired transfer type.
 		
-		/* 	
-				Master writes the slave address to the I2CMSA register and configures
-				the R/S bit for the desired transfer type.
-				
-				This address is 7-bits long followed by an eighth bit, which is
-				a data direction bit (R/S bit in the I2CMSA register)	
-		*/
-		*msa = (devSlave << 1U); /**< 0. Bit = R/S bit ==> Write -> 0 */
+		This address is 7-bits long followed by an eighth bit, which is
+		a data direction bit (R/S bit in the I2CMSA register)	
+	*/
+	*msa = (devSlave << 1U); /**< 0. Bit = R/S bit ==> Write -> 0 */
+	
+	/* Data is written to the I2CMDR register - what slave-register to read from */
+	*mdr = reg;
+	
+	/* Master writes 0x3 to the I2CMCS register to initiate a transfer */
+	*mcs = START_RUN;
+	
+	/* Wait until I2C controller is not busy (BUSY bit = 0) and check for error */
+	/* If error accured reeturn -1 */
+	status = I2C_Bus_Busy_Wait(mcs);
+	
+	if(status != 0) 
+	{
+		return status;
+	}
+	
+	/* 	
+		Master writes the slave address to the I2CMSA register and configures
+		the R/S bit for the desired transfer type.
 		
-		/* Data is written to the I2CMDR register - what slave-register to read from */
-		*mdr = reg;
-		
-		/* Master writes 0x3 to the I2CMCS register to initiate a transfer */
-		*mcs = START_RUN;
-		
-		/* Wait until I2C controller is not busy (BUSY bit = 0) and check for error */
-		I2C_Bus_Busy_Wait(mcs);
-		
-		/* If error accured reeturn -1 */
-		if(I2C_Bus_Busy_Wait(mcs) != 0) 
-		{
-			return -1;
-		}
-		/* Send send data to slave-register */
-		*mdr = data;
-		
-		/* Master writes 0x5 to the I2CMCS register to stop a transfer */ 
-		*mcs = RUN_STOP;
-		
-		/* Wait until I2C controller is not busy (BUSY bit = 0) and check for error */
-		I2C_Bus_Busy_Wait(mcs);
-		
-		/* If error accured reeturn -1 */
-		if(I2C_Bus_Busy_Wait(mcs) != 0) 
-		{
-			return -1;
-		}
-		/* No errors accured succeded! */
-		return 0;
+		This address is 7-bits long followed by an eighth bit, which is
+		a data direction bit (R/S bit in the I2CMSA register)	
+	*/
+	*msa = ((devSlave << 1U) | 1U); /**< 0. Bit = R/S bit ==> Write -> 1. */
+	
+	/* Master writes 0x7 to the I2CMCS register to initiate a transfer */
+	*mcs = START_RUN_STOP;
+	
+	/* Wait until I2C controller is not busy (BUSY bit = 0) and check for error */
+	/* If error accured reeturn status */
+	status = I2C_Bus_Busy_Wait(mcs);
+	
+	if(status != 0) 
+	{
+		return status;
+	}
+	
+	/* write data from I2CNDR register to *data - use only the lower 8 bits */
+	*data = (uint8_t)(*mdr & 0xFF);
+
+	return 0;
 }
