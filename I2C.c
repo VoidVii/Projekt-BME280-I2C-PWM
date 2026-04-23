@@ -86,6 +86,18 @@ void I2C_Init(uint8_t module, uint8_t port, uint8_t pin_I2CSCL, uint8_t pin_I2CS
     *mtpr = TPR;    // für 50 MHz SCL = 100 kHz
 }
 
+/* 
+	1. Set slave address (WRITE)
+	2. Write register address
+	3. START + RUN
+	4. Wait BUSY = 0
+	5. Check ACK
+
+	6. Write data
+	7. RUN + STOP
+	8. Wait BUSY = 0
+	9. Check ACK
+*/ 
 int32_t I2C_WriteReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t data)
 {
 		
@@ -149,7 +161,18 @@ int32_t I2C_WriteReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t data
 	return 0;
 }
 
+/* 
+	1. Set slave address (WRITE)
+	2. Write register
+	3. START + RUN
+	4. Wait + check
 
+	5. Set slave address (READ)
+	6. START + RUN + STOP
+	7. Wait + check
+
+	8. Read data
+*/
 int32_t I2C_ReadReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t* data)
 {
 	/* Pointer to registers */
@@ -216,3 +239,19 @@ int32_t I2C_ReadReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t* data
 
 	return 0;
 }
+
+
+/* 
+	1. Write register address 
+
+	2. Switch to READ
+
+	3. START + RUN
+	4. Read byte 1 -> ACK
+
+	5. RUN
+	6. Read byte 2 -> ACK
+
+	7. RUN + STOP
+	8. Read last byte -> NACK
+*/
