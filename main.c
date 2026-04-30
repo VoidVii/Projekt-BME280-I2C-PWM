@@ -22,7 +22,10 @@ The “id” register contains the chip identification number chip_id[7:0]V*/
 
 /* Test Variable */
 volatile uint8_t chipID = 0;
-volatile int8_t temperature = 0; 
+static volatile int8_t temperature0 = 0U; 
+static volatile int8_t temperature1 = 0U;
+static volatile uint8_t temperature2 = 0U;
+uint8_t bufferi[3];
 
 void BME280_Init(void){
 	uint8_t data;
@@ -48,6 +51,57 @@ void BME280_Init(void){
 		chipID = data;
 }
 
+void BME280_Temp_Init(void){
+	uint8_t data2 = 0x27;
+	//int32_t status_read = I2C_ReadBurst(0, BME280_ADDR, 0xF5, bufferi, 3);
+	int32_t status_read = I2C_WriteReg(0, BME280_ADDR, 0xF4, data2);
+	
+	if((status_read) != 0)
+	{
+		switch(status_read)
+		{
+			case I2C_E_ARBLST:
+				GPIO_WritePin(GPIO_PORTF, GREEN_LED, ON);
+				break;
+			
+			case I2C_E_ADRACK:
+				GPIO_WritePin(GPIO_PORTF, RED_LED, ON);
+				break;
+			
+			case I2C_E_DATACK:
+				GPIO_WritePin(GPIO_PORTF, BLUE_LED, ON);
+				break;
+		}
+	}
+}
+
+void BME280_Temp(void){
+	
+	int32_t status_read = I2C_ReadBurst(0, BME280_ADDR, 0xFA, bufferi, 3);
+	
+	if((status_read) != 0)
+	{
+		switch(status_read)
+		{
+			case I2C_E_ARBLST:
+				GPIO_WritePin(GPIO_PORTF, GREEN_LED, ON);
+				break;
+			
+			case I2C_E_ADRACK:
+				GPIO_WritePin(GPIO_PORTF, RED_LED, ON);
+				break;
+			
+			case I2C_E_DATACK:
+				GPIO_WritePin(GPIO_PORTF, BLUE_LED, ON);
+				break;
+		}
+	}
+	temperature0 = bufferi[2];
+	temperature1 = bufferi[1];
+	temperature2 = bufferi[0];
+}
+
+
 int main(void) {
     SystemCoreClockUpdate();
     __disable_irq();
@@ -66,11 +120,15 @@ int main(void) {
     GPIO_WritePin(GPIO_PORTF, GREEN_LED, OFF);
 	
     BME280_Init();
-
+		BME280_Temp_Init();
+		BME280_Temp();
     __enable_irq();
 
     while(1) 
     {
+			for(uint32_t volatile i = 0; i <= 200; i++){}
 			
+			
+			BME280_Temp();			
     }  
 }
