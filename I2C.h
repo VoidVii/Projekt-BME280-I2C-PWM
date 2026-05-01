@@ -6,14 +6,16 @@
 /* Array for module selection */
 extern uint32_t I2C_Base[];
 
-/*START and STOP Conditions - STOP=1, START=1, and RUN=1 
-*/
+/*==============================================================================*/
+
+/* START and STOP Conditions - STOP=1, START=1, and RUN=1 */
 #define START_RUN				0x03U
 #define RUN_STOP				0x05U
 #define START_RUN_STOP	0x07U
 #define START_RUN_ACK		0x0BU
 #define RUN_ACK					0x09U
 
+/*==============================================================================*/
 
 /* I2C_MCS (Master Control/Status) bits */
 #define I2C_BUSY_BIT 		(1U << 0U) /**< Bus is busy */
@@ -21,6 +23,8 @@ extern uint32_t I2C_Base[];
 #define I2C_MCS_ADRACK 	(1U << 2U) /**< Address not aknowledged */
 #define I2C_MCS_DATACK 	(1U << 3U) /**< Data not aknowledged */
 #define I2C_MCS_ARBLST 	(1U << 4U) /**< Abritation failed - Bus conection lost */
+
+/*==============================================================================*/
 
 /* All Bus-Errors  */
 #define I2C_MCS_ALL_ERRORS (I2C_MCS_ARBLST | I2C_MCS_ERROR | I2C_MCS_ADRACK | I2C_MCS_DATACK )
@@ -32,30 +36,33 @@ extern uint32_t I2C_Base[];
 #define I2C_E_DATACK	-3
 #define I2C_E_NOLEN		-4
 
+/*==============================================================================*/
+
 /* TPR - Value - Calculation - Datasheet - "normal speed" values*/
 #define SCL_LP					6U
 #define SCL_HP					4U
 #define SCL_CLK 				100000U /**< 100KHz */
 
+/*==============================================================================*/
+
 /* I2CMCR Vlaue to set I2C Mater */
 #define I2C_MCR_MASTER		0x10U
 
-//#define I2C0_Base 0x40020000U
-
+/*==============================================================================*/
+/* I2C - Module */
 #define I2C_0 0U 
 #define I2C_1 1U 
 #define I2C_2 2U 
 #define I2C_3 3U 
 
-/* **** 16.5 Register Map - Datasheet **** */
+/*==============================================================================*/
 
 /*
-Base:
-
-I2C 0: 0x4002.0000
-I2C 1: 0x4002.1000
-I2C 2: 0x4002.2000
-I2C 3: 0x4002.3000 
+	Base:
+	I2C 0: 0x4002.0000
+	I2C 1: 0x4002.1000
+	I2C 2: 0x4002.2000
+	I2C 3: 0x4002.3000 
 */
 #define I2C_SRI2C					
 #define I2C_MSA_OFFSET		0x000U /* I2C Master Slave Address */
@@ -63,10 +70,6 @@ I2C 3: 0x4002.3000
 #define I2C_MDR_OFFSET		0x008U /* I2C Master Data */
 #define I2C_MTPR_OFFSET		0x00CU /* I2C Master Timer Period */
 #define I2C_MCR_OFFSET		0x020U /* I2C Master Configuration */
-
-
-/* **** **** **** **** **** **** **** **** */
-
 
 
 /*==============================================================================
@@ -83,9 +86,27 @@ I2C 3: 0x4002.3000
 */
 void I2C_Init(uint8_t module, uint8_t port, uint8_t pin_I2CSCL, uint8_t pin_I2CSDA);
 
-/* Bus busy loop + Error check */
+/*==============================================================================*/
+/**
+*@brief Bus busy loop + Error check 
+*
+*@param	mcs		Master Control/Status mcs
+*
+*@note ERROR => ARBLST | ADRACK | DATACK
+*/
 int32_t I2C_Bus_Busy_Wait(volatile uint32_t* mcs);
 
+/*==============================================================================*/
+/**
+*@brief Light up LED's if error accured
+*
+*@param I2C_Status_Read 	I2C-Bus Status from I2C_Bus_Busy_Wait
+*
+*@note ARBLST(Green) | ADRACK (Red) | DATACK (Blue)
+*/
+void I2C_Status_Handler(int32_t I2C_Status_Read);
+
+/*==============================================================================*/
 /**
 *@brief Write to slave in register with data
 *
@@ -98,6 +119,7 @@ int32_t I2C_Bus_Busy_Wait(volatile uint32_t* mcs);
 */
 int32_t I2C_WriteReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t data);
 
+/*==============================================================================*/
 /**
 *@brief Read from slave data in a register
 *
@@ -109,7 +131,7 @@ int32_t I2C_WriteReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t data
 */
 int32_t I2C_ReadReg(uint8_t module, uint8_t devSlave, uint8_t reg , uint8_t* data);
 
-
+/*==============================================================================*/
 /**
 *@brief Read multible times from slave data in a register
 *
@@ -123,5 +145,5 @@ int32_t I2C_ReadReg(uint8_t module, uint8_t devSlave, uint8_t reg , uint8_t* dat
 */
 int32_t I2C_ReadBurst(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t* buffer, uint8_t len);
 
-
+/*==============================================================================*/
 #endif // I2C_H_

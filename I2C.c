@@ -2,6 +2,8 @@
 #include "TM4C123GH6PM.h"       // TI - MCU - CMSIS - Hardware 
 #include "GPIO.h"
 
+/*==============================================================================*/
+
 /* Base-Address: I2C0 - I2C3 -> Datasheet */
 uint32_t I2C_Base[] = {
 	0x40020000U,	//I2C0
@@ -9,9 +11,15 @@ uint32_t I2C_Base[] = {
 	0x40022000U,	//I2C2
 	0x40023000U,	//I2C3
 };
+/*==============================================================================*/
 
-
-/* Bus busy loop */
+/**
+*@brief Bus busy loop + Error check 
+*
+*@param	mcs		Master Control/Status mcs
+*
+*@note ERROR => ARBLST | ADRACK | DATACK
+*/
 int32_t I2C_Bus_Busy_Wait(volatile uint32_t *mcs)
 {
 	/* Wait until I2C controller is not busy (BUSY bit = 0) */
@@ -38,15 +46,40 @@ int32_t I2C_Bus_Busy_Wait(volatile uint32_t *mcs)
 			return I2C_E_DATACK;
 		}
 	}
-//	else
-//	{	
-//		/* Success - No ERROR */
-//		return I2C_OK;
-//	}
 	return I2C_OK;
 }
+/*==============================================================================*/
 
-	/**
+/**
+*@brief Light up LED's if error accured
+*
+*@param I2C_Status_Read 	I2C-Bus Status from I2C_Bus_Busy_Wait
+*
+*@note ARBLST(Green) | ADRACK (Red) | DATACK (Blue)
+*/
+void I2C_Status_Handler(int32_t I2C_Status_Read)
+{
+	if((I2C_Status_Read) != 0)
+	{
+		switch(I2C_Status_Read)
+		{
+			case I2C_E_ARBLST:
+				GPIO_WritePin(GPIO_PORTF, GREEN_LED, ON);
+				break;
+			
+			case I2C_E_ADRACK:
+				GPIO_WritePin(GPIO_PORTF, RED_LED, ON);
+				break;
+			
+			case I2C_E_DATACK:
+				GPIO_WritePin(GPIO_PORTF, BLUE_LED, ON);
+				break;
+		}
+	}
+}
+/*==============================================================================*/
+
+/**
 *@brief Initialize the I2C-BUS
 */
 void I2C_Init(uint8_t module, uint8_t port, uint8_t pin_I2CSCL, uint8_t pin_I2CSDA)
@@ -86,6 +119,8 @@ void I2C_Init(uint8_t module, uint8_t port, uint8_t pin_I2CSCL, uint8_t pin_I2CS
 		/* Write the I2CMTPR register with the value of TPR */
     *mtpr = TPR;    // für 50 MHz SCL = 100 kHz
 }
+
+/*==============================================================================*/
 
 /* 
 	1. Set slave address (WRITE)
@@ -161,6 +196,7 @@ int32_t I2C_WriteReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t data
 	/* No errors accured succeded! */
 	return 0;
 }
+/*==============================================================================*/
 
 /**
 *@brief Read from slave data in a register
@@ -239,22 +275,8 @@ int32_t I2C_ReadReg(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t* data
 
 	return 0;
 }
+/*==============================================================================*/
 
-
-/* 
-	1. Write register address 
-
-	2. Switch to READ
-
-	3. START + RUN
-	4. Read byte 1 -> ACK
-
-	5. RUN
-	6. Read byte 2 -> ACK
-
-	7. RUN + STOP
-	8. Read last byte -> NACK
-*/
 /**
 *@brief Read multible times from slave data in a register
 *
@@ -322,7 +344,7 @@ int32_t I2C_ReadBurst(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t* bu
 	*/
 	*msa = ((devSlave << 1U) | 1U); /**< 0. Bit = R/S bit ==> Write -> 1. */
 	
-	for(uint8_t volatile i = 0U; i < length; i++)
+	for(uint8_t i = 0U; i < length; i++)
 	{
 		if(i == 0U && length == 1U)/**<If ReadBurst ist used for a single regsiter */
 		{
@@ -357,7 +379,8 @@ int32_t I2C_ReadBurst(uint8_t module, uint8_t devSlave, uint8_t reg, uint8_t* bu
 		/* write data from I2CNDR register to *data - use only the lower 8 bits */
 		buffer[i] = (uint8_t)(*mdr & 0xFF);
 	}
-		
 	
 	return 0;
 }
+
+/*==============================================================================*/

@@ -14,91 +14,44 @@
 /* 5.4.1 Register 0xD0 “id”
 The “id” register contains the chip identification number chip_id[7:0]V*/
 #define BME280_REG_ID 0xD0 /**< Read value is 0x60 */
-
-#define BME280_MSB	0xFA /**< MSB part ut[19:12] of the raw temperature */
-#define BME280_LSB	0xFB /**< LSB part ut[11:4] of the raw temperature */
-#define BME280_XLSB 0xFC /**< LSB part ut[3:0] of the raw temperature */
+#define BME280_CTRL_MEAS	0xF4 /**< pressure and temperature data acquisition options of the device */
+#define BME280_MSB_T	0xFA /**< MSB part ut[19:12] of the raw temperature */
+#define BME280_LSB_T	0xFB /**< LSB part ut[11:4] of the raw temperature */
+#define BME280_XLSB_T 0xFC /**< LSB part ut[3:0] of the raw temperature */
 
 
 /* Test Variable */
 volatile uint8_t chipID = 0;
-static volatile int8_t temperature0 = 0U; 
-static volatile int8_t temperature1 = 0U;
-static volatile uint8_t temperature2 = 0U;
+static volatile int32_t Raw_Temperature = 0U; 
+/* 3 Bytes  */
 uint8_t bufferi[3];
 
 void BME280_Init(void){
 	uint8_t data;
 	int32_t status_read = I2C_ReadReg(I2C_0, BME280_ADDR, BME280_REG_ID, &data);
-
-	if((status_read) != 0)
-	{
-		switch(status_read)
-		{
-			case I2C_E_ARBLST:
-				GPIO_WritePin(GPIO_PORTF, GREEN_LED, ON);
-				break;
-			
-			case I2C_E_ADRACK:
-				GPIO_WritePin(GPIO_PORTF, RED_LED, ON);
-				break;
-			
-			case I2C_E_DATACK:
-				GPIO_WritePin(GPIO_PORTF, BLUE_LED, ON);
-				break;
-		}
-	}
-		chipID = data;
+	
+	I2C_Status_Handler(status_read);
+	
+	chipID = data;
 }
 
 void BME280_Temp_Init(void){
-	uint8_t data2 = 0x27;
-	//int32_t status_read = I2C_ReadBurst(0, BME280_ADDR, 0xF5, bufferi, 3);
-	int32_t status_read = I2C_WriteReg(0, BME280_ADDR, 0xF4, data2);
+	/* Register 0xF4 “ctrl_meas”: 101(osrs_t = oversampling ×16) 000(osrs_p) 11(Normal mode)*/
+	uint8_t data2 = 0xA3;
+	/* */
+	int32_t status_read = I2C_WriteReg(0, BME280_ADDR, BME280_CTRL_MEAS, data2);
 	
-	if((status_read) != 0)
-	{
-		switch(status_read)
-		{
-			case I2C_E_ARBLST:
-				GPIO_WritePin(GPIO_PORTF, GREEN_LED, ON);
-				break;
-			
-			case I2C_E_ADRACK:
-				GPIO_WritePin(GPIO_PORTF, RED_LED, ON);
-				break;
-			
-			case I2C_E_DATACK:
-				GPIO_WritePin(GPIO_PORTF, BLUE_LED, ON);
-				break;
-		}
-	}
+	I2C_Status_Handler(status_read);
 }
 
 void BME280_Temp(void){
+	uint8_t Temp_Bytes = 3U;
+	int32_t status_read = I2C_ReadBurst(0, BME280_ADDR, BME280_MSB_T, bufferi, Temp_Bytes);
 	
-	int32_t status_read = I2C_ReadBurst(0, BME280_ADDR, 0xFA, bufferi, 3);
+	I2C_Status_Handler(status_read);
+	/* 0xFA ut[19:12] | 0xFB ut[11:4] | 0xFC ut[3:0] */
+	Raw_Temperature = (((int32_t)bufferi[0] << 12U) | ((int32_t)bufferi[1] << 4U) | ((int32_t)bufferi[2] >> 4U));
 	
-	if((status_read) != 0)
-	{
-		switch(status_read)
-		{
-			case I2C_E_ARBLST:
-				GPIO_WritePin(GPIO_PORTF, GREEN_LED, ON);
-				break;
-			
-			case I2C_E_ADRACK:
-				GPIO_WritePin(GPIO_PORTF, RED_LED, ON);
-				break;
-			
-			case I2C_E_DATACK:
-				GPIO_WritePin(GPIO_PORTF, BLUE_LED, ON);
-				break;
-		}
-	}
-	temperature0 = bufferi[2];
-	temperature1 = bufferi[1];
-	temperature2 = bufferi[0];
 }
 
 
@@ -126,9 +79,7 @@ int main(void) {
 
     while(1) 
     {
-			for(uint32_t volatile i = 0; i <= 200; i++){}
-			
-			
+			for(uint32_t volatile j = 0; j <= 200; j++){}
 			BME280_Temp();			
     }  
 }
